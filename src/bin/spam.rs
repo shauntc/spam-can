@@ -1,88 +1,162 @@
-use clap::Parser;
-use tokio::{join, time::Instant};
-use reqwest::{get, Response};
+use std::{collections::HashMap, fs};
+
 use anyhow::Result;
+use clap::Parser;
+use futures::future::join_all;
+use itertools::Itertools;
+use reqwest::{get, Response, Url};
+use tokio::time::Instant;
 
-use spam_can::{TestResult, ResponseInfo, Status};
-
-const SEG_XAP: &'static str = "https://api.msn.com/news/feed/pages/dashboard4?apikey=AEbyVYqTQAPvg4lWwMSFHaLkDzl3weRKKIDDInLQUj&fdhead=prg-pr2-na4-tre,prg-pr2-cgtrend,prg-1sw-tslt&market=en-us&ocid=winp2&timeOut=100000&user=m-18543CBC84E967AF12DD2CFE856766F3";
-const NA_XAP: &'static str = "https://api.msn.com/news/feed/pages/dashboard4?apikey=AEbyVYqTQAPvg4lWwMSFHaLkDzl3weRKKIDDInLQUj&fdhead=prg-pr2-na2-tre,prg-pr2-cgtrend,prg-1sw-tslt&market=en-us&ocid=winp2&timeOut=100000&user=m-18543CBC84E967AF12DD2CFE856766F3";
-const NO_XAP: &'static str = "https://api.msn.com/news/feed/pages/dashboard4?apikey=AEbyVYqTQAPvg4lWwMSFHaLkDzl3weRKKIDDInLQUj&market=en-us&ocid=winp2&timeOut=100000&user=m-18543CBC84E967AF12DD2CFE856766F3";
-const NO_XAP_TRENDING: &'static str = "https://api.msn.com/news/feed/pages/dashboard4?apikey=AEbyVYqTQAPvg4lWwMSFHaLkDzl3weRKKIDDInLQUj&fdhead=prg-pr2-na-tre,prg-pr2-cgtrend,prg-1sw-tslt&market=en-us&ocid=winp2&timeOut=100000&user=m-18543CBC84E967AF12DD2CFE856766F3";
+use spam_can::{
+    configs::{SpamConfig, TestConfig},
+    ResponseInfo, TestResult,
+};
 
 #[derive(Parser, Debug)]
 struct Options {
-    /// number of requests per scenario
+    /// number of parallel requests to make   NOTE: each test is done in series, this only applies to the requests in a test
     #[arg(short, long, default_value_t = 10)]
-    count: u32,
+    parallelism: usize,
 
     /// output directory
-    #[arg(short, long, default_value = "out")]
-    output_dir: String
+    #[arg(short, long, default_value = "out/data")]
+    output_dir: String,
+
+    #[arg(long, short, default_value = "spam.toml")]
+    config_path: String,
+
+    /// test configuration names to run
+    #[arg(short, long)]
+    tests: Option<Vec<String>>,
+}
+
+fn get_test_configs(config: &SpamConfig, options: &Options) -> Vec<TestConfig> {
+    if let Some(test_names) = &options.tests {
+        return test_names
+            .iter()
+            .map(
+                |test_name| match config.test_configs.iter().find(|v| test_name.eq(&v.name)) {
+                    Some(test_config) => test_config.clone(),
+                    _ => panic!("Name '{test_name}' doesn't correspond to a test config"),
+                },
+            )
+            .collect();
+    } else {
+        config.test_configs.iter().map(Clone::clone).collect()
+    }
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let options = Options::parse();
+    let file = fs::read_to_string(&options.config_path)?;
 
-    let (seg_res, na_res, no_res, nt_res) = join!(
-        test_url("Segments Answers", SEG_XAP, true, options.count),
-        test_url("News Answers", NA_XAP, true, options.count),
-        test_url("No Flights", NO_XAP, false, options.count),
-        test_url("Non-Xap Trending", NO_XAP_TRENDING, true, options.count)
-    );
+    let config: SpamConfig = toml::from_str(&file)?;
 
-    println!("{}", na_res.report());
-    println!("{}", seg_res.report());
-    println!("{}", no_res.report());
-    println!("{}", nt_res.report());
+    let handles = get_test_configs(&config, &options)
+        .into_iter()
+        .map(|mut test_config| {
+            if let Some(g_collect) = &config.collect {
+                let collect = test_config.collect.get_or_insert(Vec::new());
+                for item in g_collect {
+                    collect.push(item.clone());
+                }
+            }
+            test_config.rotate_uuids.get_or_insert(config.rotate_uuids);
+            test_config
+        })
+        .map(|test_config| test_url(test_config, config.count, options.parallelism));
 
-    let _ = na_res.save(&options.output_dir).map_err(|e| println!("{:?}", e));
-    let _ = seg_res.save(&options.output_dir).map_err(|e| println!("{:?}", e));
-    let _ = no_res.save(&options.output_dir).map_err(|e| println!("{:?}", e));
-    let _ = nt_res.save(&options.output_dir).map_err(|e| println!("{:?}", e));
+    for handle in handles {
+        let time = Instant::now();
+        let result = handle.await;
+        let duration = time.elapsed();
+        println!("[{duration:?}] {}", result.report());
+        match result.save(&options.output_dir) {
+            Ok(()) => {}
+            Err(e) => println!("Error saving results for '{}': {e}", result.name,),
+        }
+    }
 
     Ok(())
 }
 
-async fn test_url(name: &str, url: &'static str, check_trending: bool, count: u32) -> TestResult {
-    let handles = (0..count).map(|_| make_req(url, check_trending)).map(|r| tokio::spawn(r));
-
-    let mut responses = Vec::with_capacity(handles.len());
-
-    for handle in handles {
-        match handle.await {
-            Ok(res) => responses.push(res),
-            Err(e) => println!("{}", e.to_string())
+async fn test_url(config: TestConfig, count: usize, parallelism: usize) -> TestResult {
+    let count = config.count.unwrap_or(count);
+    let f = (0..count).map(|_| {
+        let mut url = config.url.clone();
+        if let Some(true) = config.rotate_uuids {
+            let req_uuid = format!("m-{}", uuid::Uuid::new_v4().simple());
+            let query: Vec<_> = url
+                .query_pairs()
+                .filter(|(name, _)| name != "user")
+                .map(|(name, value)| (name.into_owned(), value.into_owned()))
+                .collect();
+            url.query_pairs_mut()
+                .clear()
+                .extend_pairs(&query)
+                .append_pair("user", &req_uuid);
         }
+        let check_for = config.check_for.clone();
+        let collect = config.collect.clone();
+        make_req(url.clone(), check_for, collect)
+    });
+
+    let mut results = Vec::with_capacity(f.len());
+
+    for item in &f.chunks(parallelism) {
+        results.append(&mut join_all(item).await);
     }
 
-    TestResult::new(responses, name.into())
+    TestResult::new(results, config.name)
 }
 
-async fn make_req(url: &str, check_trending: bool) -> ResponseInfo {
-    let time = Instant::now();
+async fn make_req(
+    url: Url,
+    check_for: Option<Vec<String>>,
+    collect: Option<Vec<String>>,
+) -> ResponseInfo {
+    let start = Instant::now();
     match get(url).await {
         Ok(r) => {
-            let activity_id = get_header(&r, "ddd-activityid");
-            let debug_id = get_header(&r, "ddd-debugid");
-            match check_trending {
-                true => match r.text().await {
+            let time = start.elapsed();
+            let collected: HashMap<String, String> = collect
+                .unwrap_or(Vec::new())
+                .iter()
+                .map(|v| (v.to_owned(), get_header(&r, v)))
+                .collect();
+
+            match check_for {
+                Some(items) => match r.text().await {
+                    // todo: return all that don't match
                     Ok(j) => {
-                        match j.find("TrendingModule") {
-                            Some(_) => ResponseInfo { time: time.elapsed(), debug_id, activity_id, status: Status::Success },
-                            None => ResponseInfo { time: time.elapsed(), debug_id, activity_id, status: Status::Failure { reason: "no trending module".into() } }
+                        let unmatched: Vec<_> =
+                            items.into_iter().filter(|v| !j.contains(v)).collect();
+                        match unmatched.len() {
+                            0 => ResponseInfo::success(time, collected),
+                            _ => ResponseInfo::error(
+                                time,
+                                format!("Missing values {unmatched:?}"),
+                                Some(collected),
+                            ),
                         }
-                    },
-                    _ => ResponseInfo { time: time.elapsed(), debug_id, activity_id, status: Status::Failure { reason: "failed to get text content from response".into() }}
+                    }
+                    _ => ResponseInfo::error(
+                        time,
+                        "text content unavailable from response".into(),
+                        None,
+                    ),
                 },
-                false => ResponseInfo { time: time.elapsed(), debug_id, activity_id, status: Status::Success }
+                None => ResponseInfo::success(time, collected),
             }
-        },
-        Err(e) => ResponseInfo { time: time.elapsed(), debug_id: "".into(), activity_id: "".into(), status: Status::Failure { reason: e.to_string() } }
+        }
+        Err(e) => ResponseInfo::error(start.elapsed(), e.to_string(), None),
     }
 }
 
 fn get_header(res: &Response, key: &str) -> String {
-    res.headers().get(key).and_then(|h| Some(h.to_str().unwrap_or("").to_owned())).unwrap_or("".to_owned())
+    res.headers()
+        .get(key)
+        .and_then(|h| Some(h.to_str().unwrap_or("").to_owned()))
+        .unwrap_or("".to_owned())
 }

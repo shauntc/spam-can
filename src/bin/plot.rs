@@ -1,19 +1,19 @@
-use std::{ops::Div, fs};
+use std::{fs, ops::Div};
 
-use clap::Parser;
 use anyhow::Result;
+use clap::Parser;
+use ndhistogram::{axis::Uniform, ndhistogram, Histogram};
 use spam_can::TestResult;
 use tokio::time::Duration;
-use ndhistogram::{Histogram, ndhistogram, axis::Uniform};
 
 #[derive(Parser, Debug)]
 struct Options {
     /// directory containing the data produced by 'spam'
-    #[arg(short, long, default_value = "out")]
+    #[arg(short, long, default_value = "out/data")]
     data_dir: String,
 
     /// output directory
-    #[arg(short, long, default_value = "graphs")]
+    #[arg(short, long, default_value = "out/graphs")]
     output_dir: String,
 }
 
@@ -22,10 +22,18 @@ fn main() -> Result<()> {
 
     for result in TestResult::load_data(&options.data_dir)? {
         let title = format!("{} Successes", result.name);
-        let _ = plot(result.success_responses().map(|res| res.time), &title, &options.output_dir);
+        let _ = plot(
+            result.success_responses().map(|res| res.time),
+            &title,
+            &options.output_dir,
+        );
 
         let failures_title = format!("{} Failures", result.name);
-        let _ = plot(result.failure_responses().map(|res| res.time), &failures_title, &options.output_dir);
+        let _ = plot(
+            result.failure_responses().map(|res| res.time),
+            &failures_title,
+            &options.output_dir,
+        );
     }
 
     Ok(())
@@ -45,14 +53,18 @@ fn plot(data: impl Iterator<Item = Duration>, name: &str, out_dir: &str) -> Resu
     let data_ms = data.map(|t| t.as_millis() as u32).collect::<Vec<u32>>();
     data_ms.iter().for_each(|t| histogram.fill(t));
 
-    let highest_count = histogram.iter().map(|v| (*v.value as u32)).max().ok_or(anyhow::anyhow!("no max??"))?;
+    let highest_count = histogram
+        .iter()
+        .map(|v| (*v.value as u32))
+        .max()
+        .ok_or(anyhow::anyhow!("no max??"))?;
+
     let std_dev = std_deviation(&data_ms).ok_or(anyhow::anyhow!("unable to calculate std_dev"))?;
     let avg = mean(&data_ms).ok_or(anyhow::anyhow!("unable to calculate avg"))?;
 
     use plotters::prelude::*;
-    
-    let root_drawing_area = BitMapBackend::new(&file_path, (2000, 1000))
-        .into_drawing_area();
+
+    let root_drawing_area = BitMapBackend::new(&file_path, (2000, 1000)).into_drawing_area();
 
     root_drawing_area.fill(&WHITE)?;
     let dev_message = format!("std_dev: {std_dev}");
@@ -73,12 +85,10 @@ fn plot(data: impl Iterator<Item = Duration>, name: &str, out_dir: &str) -> Resu
     ctx.draw_series(
         Histogram::vertical(&ctx)
             .margin(10)
-            .data(histogram.iter().filter_map(|v| {
-                match v.bin.start() {
-                    Some(bin) => Some((bin, (*v.value) as u32)),
-                    _ => None
-                }
-            }))
+            .data(histogram.iter().filter_map(|v| match v.bin.start() {
+                Some(bin) => Some((bin, (*v.value) as u32)),
+                _ => None,
+            })),
     )?;
 
     Ok(())
@@ -97,14 +107,18 @@ fn mean(data: &[u32]) -> Option<f32> {
 fn std_deviation(data: &[u32]) -> Option<f32> {
     match (mean(data), data.len()) {
         (Some(data_mean), count) if count > 0 => {
-            let variance = data.iter().map(|value| {
-                let diff = data_mean - (*value as f32);
+            let variance = data
+                .iter()
+                .map(|value| {
+                    let diff = data_mean - (*value as f32);
 
-                diff * diff
-            }).sum::<f32>() / count as f32;
+                    diff * diff
+                })
+                .sum::<f32>()
+                / count as f32;
 
             Some(variance.sqrt())
-        },
-        _ => None
+        }
+        _ => None,
     }
 }

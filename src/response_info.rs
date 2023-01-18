@@ -1,13 +1,14 @@
-use std::time::Duration;
+use std::collections::HashMap;
 
-use rkyv::{Serialize, Deserialize, Archive};
 use bytecheck::CheckBytes;
+use rkyv::{Archive, Deserialize, Serialize};
+use tokio::time::Duration;
 
 #[derive(Debug, Serialize, Deserialize, Archive)]
 #[archive_attr(derive(CheckBytes, Debug))]
 pub enum Status {
     Success,
-    Failure { reason: String }
+    Failure { reason: String },
 }
 
 impl Status {
@@ -23,7 +24,29 @@ impl Status {
 #[archive_attr(derive(CheckBytes, Debug))]
 pub struct ResponseInfo {
     pub time: Duration,
-    pub debug_id: String,
-    pub activity_id: String,
     pub status: Status,
+    pub collected: HashMap<String, String>,
+}
+
+impl ResponseInfo {
+    pub fn new() {}
+
+    pub fn error(
+        time: Duration,
+        reason: String,
+        collected: Option<HashMap<String, String>>,
+    ) -> Self {
+        Self {
+            time,
+            status: Status::Failure { reason },
+            collected: collected.unwrap_or_default(),
+        }
+    }
+    pub fn success(time: Duration, collected: HashMap<String, String>) -> Self {
+        Self {
+            time,
+            status: Status::Success,
+            collected,
+        }
+    }
 }

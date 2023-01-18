@@ -9,11 +9,18 @@ edition = "2021"
 anyhow = "1.0.68"
 bytecheck = "0.6.9"
 clap = { version = "4.0.32", features = ["derive"] }
+futures = "0.3.25"
+http = "0.2.8"
+itertools = "0.10.5"
 ndhistogram = "0.8.0"
+once_cell = "1.17.0"
 plotly = "0.8.3"
 plotters = "0.3.4"
+rand = "0.8.5"
 reqwest = { version = "0.11.13", features = ["serde_json"] }
 rkyv = { version = "0.7.39", features = ["validation"] }
 serde = { version = "1.0.152", features = ["serde_derive"] }
 serde_json = "1.0.91"
 tokio = { version = "1.24.0", features = ["full"] }
+toml = "0.5.10"
+uuid = { version = "1.2.2", features = ["v4", "fast-rng", "macro-diagnostics"] }
