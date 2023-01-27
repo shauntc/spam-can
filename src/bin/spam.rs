@@ -2,8 +2,7 @@ use std::{collections::HashMap, fs};
 
 use anyhow::Result;
 use clap::Parser;
-use futures::future::join_all;
-use itertools::Itertools;
+use futures::StreamExt;
 use reqwest::{get, Response, Url};
 use tokio::time::Instant;
 
@@ -99,14 +98,22 @@ async fn test_url(config: TestConfig, count: usize, parallelism: usize) -> TestR
         }
         let check_for = config.check_for.clone();
         let collect = config.collect.clone();
-        make_req(url.clone(), check_for, collect)
+        tokio::spawn(make_req(url.clone(), check_for, collect))
     });
 
-    let mut results = Vec::with_capacity(f.len());
-
-    for item in &f.chunks(parallelism) {
-        results.append(&mut join_all(item).await);
-    }
+    let results = tokio_stream::iter(f)
+        .buffer_unordered(parallelism)
+        .collect::<Vec<_>>()
+        .await
+        .into_iter()
+        .filter_map(|r| match r {
+            Ok(result) => Some(result),
+            Err(e) => {
+                println!("Join Error: {e:?}");
+                None
+            }
+        })
+        .collect::<Vec<_>>();
 
     TestResult::new(results, config.name)
 }

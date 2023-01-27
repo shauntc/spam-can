@@ -1,9 +1,14 @@
-use std::{fs::{File, self, DirEntry}, io::{BufWriter, Write}, path::PathBuf, ffi::OsStr};
-use rkyv::{Serialize, Deserialize, Archive, to_bytes, check_archived_root};
-use bytecheck::CheckBytes;
-use tokio::time::Duration;
-use anyhow::Result;
 use crate::ResponseInfo;
+use anyhow::Result;
+use bytecheck::CheckBytes;
+use rkyv::{check_archived_root, to_bytes, Archive, Deserialize, Serialize};
+use std::{
+    ffi::OsStr,
+    fs::{self, DirEntry, File},
+    io::{BufWriter, Write},
+    path::PathBuf,
+};
+use tokio::time::Duration;
 
 #[derive(Debug, Serialize, Deserialize, Archive)]
 #[archive_attr(derive(CheckBytes, Debug))]
@@ -18,7 +23,12 @@ impl TestResult {
     pub fn new(responses: Vec<ResponseInfo>, name: String) -> Self {
         let success_count = responses.iter().filter(|r| r.status.is_success()).count();
         let failure_count = responses.iter().filter(|r| !r.status.is_success()).count();
-        Self { name, responses, success_count, failure_count }
+        Self {
+            name,
+            responses,
+            success_count,
+            failure_count,
+        }
     }
 
     pub fn success_responses<'a>(&'a self) -> impl Iterator<Item = &'a ResponseInfo> {
@@ -37,20 +47,27 @@ impl TestResult {
     }
 
     pub fn avg_success(&self) -> Option<Duration> {
-        self.success_total_time().checked_div(self.success_count as u32)
+        self.success_total_time()
+            .checked_div(self.success_count as u32)
     }
 
     pub fn avg_failure(&self) -> Option<Duration> {
-        self.failure_total_time().checked_div(self.failure_count as u32)
+        self.failure_total_time()
+            .checked_div(self.failure_count as u32)
     }
 
     pub fn report(&self) -> String {
-        format!("{}:
+        format!(
+            "{}:
     success: {} ({:?} avg)
     failure: {} ({:?} avg)
-        ", self.name,
-        self.success_count, self.avg_success().unwrap_or(Duration::from_secs(0)),
-        self.failure_count, self.avg_failure().unwrap_or(Duration::from_secs(0)))
+        ",
+            self.name,
+            self.success_count,
+            self.avg_success().unwrap_or(Duration::from_secs(0)),
+            self.failure_count,
+            self.avg_failure().unwrap_or(Duration::from_secs(0))
+        )
     }
 
     fn file_path(&self, folder: &str) -> PathBuf {
@@ -67,7 +84,8 @@ impl TestResult {
     }
 
     pub fn load_data(output_path: &str) -> Result<impl Iterator<Item = TestResult>> {
-        Ok(fs::read_dir(output_path)?.into_iter()
+        Ok(fs::read_dir(output_path)?
+            .into_iter()
             .filter_map(|f| f.ok())
             .filter(|file| file.path().extension().and_then(OsStr::to_str) == Some("rkyv"))
             .map(|file| Self::unarchive_file(file))
