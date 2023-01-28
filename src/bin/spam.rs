@@ -1,7 +1,10 @@
+use std::io::Write;
+use std::ops::Div;
 use std::{collections::HashMap, fs};
 
 use anyhow::Result;
 use clap::Parser;
+use crossterm::{cursor, terminal, QueueableCommand};
 use futures::StreamExt;
 use reqwest::{get, Response, Url};
 use tokio::time::Instant;
@@ -67,10 +70,8 @@ async fn main() -> Result<()> {
         .map(|test_config| test_url(test_config, config.count, options.parallelism));
 
     for handle in handles {
-        let time = Instant::now();
         let result = handle.await;
-        let duration = time.elapsed();
-        println!("[{duration:?}] {}", result.report());
+        println!("{}", result.report());
         match result.save(&options.output_dir) {
             Ok(()) => {}
             Err(e) => println!("Error saving results for '{}': {e}", result.name,),
@@ -81,6 +82,7 @@ async fn main() -> Result<()> {
 }
 
 async fn test_url(config: TestConfig, count: usize, parallelism: usize) -> TestResult {
+    let start = Instant::now();
     let count = config.count.unwrap_or(count);
     let f = (0..count).map(|_| {
         let mut url = config.url.clone();
@@ -101,21 +103,37 @@ async fn test_url(config: TestConfig, count: usize, parallelism: usize) -> TestR
         tokio::spawn(make_req(url.clone(), check_for, collect))
     });
 
-    let results = tokio_stream::iter(f)
-        .buffer_unordered(parallelism)
-        .collect::<Vec<_>>()
-        .await
-        .into_iter()
-        .filter_map(|r| match r {
-            Ok(result) => Some(result),
-            Err(e) => {
-                println!("Join Error: {e:?}");
-                None
-            }
-        })
-        .collect::<Vec<_>>();
+    let mut buffered = tokio_stream::iter(f).buffer_unordered(parallelism);
+    let mut results = Vec::with_capacity(count);
 
-    TestResult::new(results, config.name)
+    let mut stdout = std::io::stdout();
+    let _ = writeln!(stdout, "[{}]", config.name);
+    let mut complete = 0usize;
+
+    while let Some(value) = buffered.next().await {
+        complete += 1;
+        static VISUAL: &'static str = "====================>...................";
+        let length = VISUAL.len();
+        let ratio = (complete as f64 / count as f64).clamp(0f64, 1f64);
+        let chunks = (length as f64 * ratio).floor().div(2f64) as usize;
+        let start = (length / 2) - chunks;
+        let end = length - chunks;
+        let _ = stdout.queue(cursor::Hide);
+        let _ = stdout.queue(cursor::SavePosition);
+        let _ = write!(stdout, "[{}] {complete:>8}/{count}", &VISUAL[start..end]);
+        match value {
+            Ok(result) => results.push(result),
+            Err(e) => {
+                let _ = write!(stdout, "Join Error: {e:?}");
+            }
+        }
+        let _ = stdout.queue(cursor::RestorePosition);
+    }
+    let _ = stdout.queue(cursor::MoveUp(1));
+    let _ = stdout.queue(terminal::Clear(terminal::ClearType::FromCursorDown));
+    drop(stdout);
+
+    TestResult::new(results, config.name, start.elapsed())
 }
 
 async fn make_req(

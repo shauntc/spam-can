@@ -14,17 +14,19 @@ use tokio::time::Duration;
 #[archive_attr(derive(CheckBytes, Debug))]
 pub struct TestResult {
     pub name: String,
+    total_time: Duration,
     responses: Vec<ResponseInfo>,
     success_count: usize,
     failure_count: usize,
 }
 
 impl TestResult {
-    pub fn new(responses: Vec<ResponseInfo>, name: String) -> Self {
+    pub fn new(responses: Vec<ResponseInfo>, name: String, total_time: Duration) -> Self {
         let success_count = responses.iter().filter(|r| r.status.is_success()).count();
         let failure_count = responses.iter().filter(|r| !r.status.is_success()).count();
         Self {
             name,
+            total_time,
             responses,
             success_count,
             failure_count,
@@ -59,10 +61,13 @@ impl TestResult {
     pub fn report(&self) -> String {
         format!(
             "{}:
+    time: {:?} (~{} rps)
     success: {} ({:?} avg)
     failure: {} ({:?} avg)
         ",
             self.name,
+            self.total_time,
+            (self.success_count + self.failure_count) / self.total_time.as_secs() as usize,
             self.success_count,
             self.avg_success().unwrap_or(Duration::from_secs(0)),
             self.failure_count,

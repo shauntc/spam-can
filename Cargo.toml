@@ -9,6 +9,7 @@ edition = "2021"
 anyhow = "1.0.68"
 bytecheck = "0.6.9"
 clap = { version = "4.0.32", features = ["derive"] }
+crossterm = "0.25.0"
 futures = "0.3.25"
 ndhistogram = "0.8.0"
 plotters = "0.3.4"
