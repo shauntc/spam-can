@@ -89,12 +89,36 @@ impl TestResult {
     }
 
     pub fn load_data(output_path: &str) -> Result<impl Iterator<Item = TestResult>> {
-        Ok(fs::read_dir(output_path)?
-            .into_iter()
-            .filter_map(|f| f.ok())
-            .filter(|file| file.path().extension().and_then(OsStr::to_str) == Some("rkyv"))
+        Ok(Self::rkyv_files(output_path)?
             .map(Self::unarchive_file)
             .filter_map(|res| res.ok()))
+    }
+
+    pub fn load_filtered(
+        output_path: &str,
+        names: Option<&[String]>,
+    ) -> Result<impl Iterator<Item = TestResult>> {
+        Ok(Self::rkyv_files(output_path)?
+            .filter(|file| match names {
+                Some(names) => file
+                    .path()
+                    .file_stem()
+                    .and_then(OsStr::to_str)
+                    .map(|v| names.iter().any(|n| n == v))
+                    .unwrap_or(false),
+                None => true,
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .map(Self::unarchive_file)
+            .filter_map(|res| res.ok()))
+    }
+
+    fn rkyv_files(directory: &str) -> Result<impl Iterator<Item = DirEntry>> {
+        Ok(fs::read_dir(directory)?
+            .into_iter()
+            .filter_map(|f| f.ok())
+            .filter(|file| file.path().extension().and_then(OsStr::to_str) == Some("rkyv")))
     }
 
     fn unarchive_file(dir: DirEntry) -> Result<TestResult> {

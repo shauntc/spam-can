@@ -1,5 +1,7 @@
+use std::ffi::OsStr;
 use std::io::Write;
 use std::ops::Div;
+use std::path::Path;
 use std::time::Duration;
 use std::{collections::HashMap, fs};
 
@@ -29,7 +31,7 @@ struct Options {
     config_path: String,
 
     /// test configuration names to run
-    #[arg(short, long)]
+    #[arg(short, long, use_value_delimiter = true)]
     tests: Option<Vec<String>>,
 }
 
@@ -52,9 +54,14 @@ fn get_test_configs(config: &SpamConfig, options: &Options) -> Vec<TestConfig> {
 #[tokio::main]
 async fn main() -> Result<()> {
     let options = Options::parse();
-    let file = fs::read_to_string(&options.config_path)?;
+    let config_path = Path::new(&options.config_path);
+    let file = fs::read_to_string(config_path)?;
 
-    let config: SpamConfig = toml::from_str(&file)?;
+    let config: SpamConfig = match config_path.extension().and_then(OsStr::to_str) {
+        Some("json") => serde_json::from_str(&file)?,
+        Some("toml") => toml::from_str(&file)?,
+        _ => panic!("Unsupported config file extension"),
+    };
 
     let handles = get_test_configs(&config, &options)
         .into_iter()
@@ -83,15 +90,10 @@ async fn test_url(config: TestConfig, count: usize, parallelism: usize) -> TestR
         let mut url = config.url.clone();
         if let Some(true) = config.rotate_uuids {
             let req_uuid = format!("m-{}", uuid::Uuid::new_v4().simple());
-            let query: Vec<_> = url
-                .query_pairs()
-                .filter(|(name, _)| name != "user")
-                .map(|(name, value)| (name.into_owned(), value.into_owned()))
-                .collect();
-            url.query_pairs_mut()
-                .clear()
-                .extend_pairs(&query)
-                .append_pair("user", &req_uuid);
+            replace_or_append_query_param(&mut url, "user", &req_uuid);
+        }
+        if let Some(flights) = &config.flights {
+            replace_or_append_query_param(&mut url, "fdhead", flights)
         }
         let check_for = config.check_for.clone();
         let collect = config.collect.clone();
@@ -187,4 +189,16 @@ fn get_header(res: &Response, key: &str) -> String {
         .get(key)
         .map(|h| h.to_str().unwrap_or("").to_owned())
         .unwrap_or_default()
+}
+
+fn replace_or_append_query_param(url: &mut Url, name: &str, value: &str) {
+    let mut query: Vec<_> = url
+        .query_pairs()
+        .filter(|(n, _)| n != name)
+        .map(|(name, value)| (name.into_owned(), value.into_owned()))
+        .collect();
+
+    query.push((name.to_owned(), value.to_owned()));
+
+    url.query_pairs_mut().clear().extend_pairs(&query);
 }
