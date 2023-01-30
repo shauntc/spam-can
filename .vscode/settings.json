@@ -1,7 +1,11 @@
 {
   "cSpell.words": [
+    "bytecheck",
     "crossterm",
+    "ndhistogram",
     "Queueable",
-    "reqwest"
+    "reqwest",
+    "rkyv",
+    "Segoe"
   ]
 }

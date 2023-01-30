@@ -25,27 +25,33 @@ impl Status {
 pub struct ResponseInfo {
     pub time: Duration,
     pub status: Status,
+    pub server_latency: Option<Duration>,
     pub collected: HashMap<String, String>,
 }
 
 impl ResponseInfo {
-    pub fn new() {}
-
     pub fn error(
         time: Duration,
         reason: String,
+        server_latency: Option<Duration>,
         collected: Option<HashMap<String, String>>,
     ) -> Self {
         Self {
             time,
             status: Status::Failure { reason },
+            server_latency,
             collected: collected.unwrap_or_default(),
         }
     }
-    pub fn success(time: Duration, collected: HashMap<String, String>) -> Self {
+    pub fn success(
+        time: Duration,
+        server_latency: Option<Duration>,
+        collected: HashMap<String, String>,
+    ) -> Self {
         Self {
             time,
             status: Status::Success,
+            server_latency,
             collected,
         }
     }

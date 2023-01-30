@@ -3,19 +3,12 @@ use std::fmt;
 use reqwest::Url;
 use serde::{de, Deserialize, Deserializer};
 
-fn uuid_rotate_default() -> bool {
-    false
-}
-fn count_default() -> usize {
-    10
-}
-
 #[derive(Debug, Deserialize, Clone)]
 pub struct SpamConfig {
     pub check_for: Option<Vec<String>>,
-    #[serde(default = "count_default")]
+    #[serde(default = "defaults::count")]
     pub count: usize,
-    #[serde(default = "uuid_rotate_default")]
+    #[serde(default = "defaults::rotate_uuids")]
     pub rotate_uuids: bool,
     pub collect: Option<Vec<String>>,
 
@@ -32,6 +25,23 @@ pub struct TestConfig {
     pub count: Option<usize>,
     pub rotate_uuids: Option<bool>,
     pub collect: Option<Vec<String>>,
+    pub latency_header: Option<String>,
+}
+
+impl TestConfig {
+    pub fn merge_global(&mut self, global: &SpamConfig) {
+        if let Some(check_for) = &global.check_for {
+            let v = self.check_for.get_or_insert_with(Vec::new);
+            v.append(&mut check_for.clone());
+        }
+        self.count.get_or_insert(global.count);
+        self.rotate_uuids.get_or_insert(global.rotate_uuids);
+
+        if let Some(collect) = &global.collect {
+            let v = self.collect.get_or_insert_with(Vec::new);
+            v.append(&mut collect.clone());
+        }
+    }
 }
 
 fn deserialize_url<'de, D: Deserializer<'de>>(d: D) -> Result<Url, D::Error> {
@@ -47,4 +57,13 @@ fn deserialize_url<'de, D: Deserializer<'de>>(d: D) -> Result<Url, D::Error> {
     }
 
     d.deserialize_any(UrlVisitor)
+}
+
+mod defaults {
+    pub fn count() -> usize {
+        10
+    }
+    pub fn rotate_uuids() -> bool {
+        false
+    }
 }

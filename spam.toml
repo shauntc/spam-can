@@ -1,28 +1,47 @@
-count = 10
+count = 1000
 output_dir = "out"
 rotate_uuids = false
-collect = ["ddd-activityid", "ddd-debugid"]
+
 
 [[test_configs]]
 name = "ntp"
 url = "https://api.msn.com/news/feed/pages/ntp?User=m-1A981357C1DE668022ED0139C06A6704&activityId=2DEF63EE-DA54-477D-A5CB-55A117775578&apikey=0QfOX3Vn51YCzitbLaRkTTBadtWpgTN8NZLW0C1SEM&audienceMode=adult&cm=en-ca&contentType=article,video,slideshow,webcontent&duotone=true&infopaneCount=26&memory=8&new-user-fre=1&newsSkip=0&newsTop=48&ocid=anaheim-ntp-feeds&timeOut=1000"
+collect = ["ddd-activityid", "ddd-debugid"]
+latency_header = "OneWebServiceLatency"
 
 [[test_configs]]
 name = "trending"
 url = "https://api.msn.com/news/feed/pages/dashboard4?apikey=AEbyVYqTQAPvg4lWwMSFHaLkDzl3weRKKIDDInLQUj&fdhead=prg-pr2-na-tre,prg-pr2-cgtrend,prg-1sw-tslt&market=en-us&ocid=winp2&timeOut=100000&user=m-18543CBC84E967AF12DD2CFE856766F3"
 test_for = ["TrendingModule"]
+collect = ["ddd-activityid", "ddd-debugid"]
+latency_header = "OneWebServiceLatency"
 
 [[test_configs]]
 name = "trending_xap"
 url = "https://api.msn.com/news/feed/pages/dashboard4?apikey=AEbyVYqTQAPvg4lWwMSFHaLkDzl3weRKKIDDInLQUj&fdhead=prg-pr2-na2-tre,prg-pr2-cgtrend,prg-1sw-tslt&market=en-us&ocid=winp2&timeOut=100000&user=m-18543CBC84E967AF12DD2CFE856766F3"
 test_for = ["TrendingModule"]
+collect = ["ddd-activityid", "ddd-debugid"]
+latency_header = "OneWebServiceLatency"
 
 [[test_configs]]
 name = "trending_xap_segments"
 url = "https://api.msn.com/news/feed/pages/dashboard4?apikey=AEbyVYqTQAPvg4lWwMSFHaLkDzl3weRKKIDDInLQUj&fdhead=prg-pr2-na4-tre,prg-pr2-cgtrend,prg-1sw-tslt&market=en-us&ocid=winp2&timeOut=100000&user=m-18543CBC84E967AF12DD2CFE856766F3"
 test_for = ["TrendingModule"]
+collect = ["ddd-activityid", "ddd-debugid"]
+latency_header = "OneWebServiceLatency"
 
 [[test_configs]]
 name = "nothing"
 url =  "https://api.msn.com/news/feed/pages/dashboard4?apikey=AEbyVYqTQAPvg4lWwMSFHaLkDzl3weRKKIDDInLQUj&market=en-us&ocid=winp2&timeOut=100000&user=m-18543CBC84E967AF12DD2CFE856766F3"
+collect = ["ddd-activityid", "ddd-debugid"]
+latency_header = "OneWebServiceLatency"
 
+[[test_configs]]
+name = "ors-reco-azure-container"
+url = "https://contel-service.icydesert-5a186ef1.canadacentral.azurecontainerapps.io/reco?user=m-347E9F30BA2F60623D298DA4BB9A618B&market=en-ca&count=10"
+latency_header = "contel-latency-ms"
+
+[[test_configs]]
+name = "ors-reco-azure-webapp"
+url = "https://contel-app.azurewebsites.net//reco?user=m-347E9F30BA2F60623D298DA4BB9A618B&market=en-ca&count=10"
+latency_header = "contel-latency-ms"

@@ -15,7 +15,7 @@ use tokio::time::Duration;
 pub struct TestResult {
     pub name: String,
     total_time: Duration,
-    responses: Vec<ResponseInfo>,
+    pub responses: Vec<ResponseInfo>,
     success_count: usize,
     failure_count: usize,
 }
@@ -33,10 +33,10 @@ impl TestResult {
         }
     }
 
-    pub fn success_responses<'a>(&'a self) -> impl Iterator<Item = &'a ResponseInfo> {
+    pub fn success_responses(&self) -> impl Iterator<Item = &ResponseInfo> {
         self.responses.iter().filter(|r| r.status.is_success())
     }
-    pub fn failure_responses<'a>(&'a self) -> impl Iterator<Item = &'a ResponseInfo> {
+    pub fn failure_responses(&self) -> impl Iterator<Item = &ResponseInfo> {
         self.responses.iter().filter(|r| !r.status.is_success())
     }
 
@@ -93,7 +93,7 @@ impl TestResult {
             .into_iter()
             .filter_map(|f| f.ok())
             .filter(|file| file.path().extension().and_then(OsStr::to_str) == Some("rkyv"))
-            .map(|file| Self::unarchive_file(file))
+            .map(Self::unarchive_file)
             .filter_map(|res| res.ok()))
     }
 

@@ -1,5 +1,6 @@
 use std::io::Write;
 use std::ops::Div;
+use std::time::Duration;
 use std::{collections::HashMap, fs};
 
 use anyhow::Result;
@@ -58,16 +59,10 @@ async fn main() -> Result<()> {
     let handles = get_test_configs(&config, &options)
         .into_iter()
         .map(|mut test_config| {
-            if let Some(g_collect) = &config.collect {
-                let collect = test_config.collect.get_or_insert(Vec::new());
-                for item in g_collect {
-                    collect.push(item.clone());
-                }
-            }
-            test_config.rotate_uuids.get_or_insert(config.rotate_uuids);
-            test_config
-        })
-        .map(|test_config| test_url(test_config, config.count, options.parallelism));
+            test_config.merge_global(&config);
+
+            test_url(test_config, config.count, options.parallelism)
+        });
 
     for handle in handles {
         let result = handle.await;
@@ -100,7 +95,8 @@ async fn test_url(config: TestConfig, count: usize, parallelism: usize) -> TestR
         }
         let check_for = config.check_for.clone();
         let collect = config.collect.clone();
-        tokio::spawn(make_req(url.clone(), check_for, collect))
+        let latency_header = config.latency_header.clone();
+        tokio::spawn(make_req(url.clone(), check_for, collect, latency_header))
     });
 
     let mut buffered = tokio_stream::iter(f).buffer_unordered(parallelism);
@@ -112,7 +108,7 @@ async fn test_url(config: TestConfig, count: usize, parallelism: usize) -> TestR
 
     while let Some(value) = buffered.next().await {
         complete += 1;
-        static VISUAL: &'static str = "====================>...................";
+        static VISUAL: &str = "====================>...................";
         let length = VISUAL.len();
         let ratio = (complete as f64 / count as f64).clamp(0f64, 1f64);
         let chunks = (length as f64 * ratio).floor().div(2f64) as usize;
@@ -131,7 +127,6 @@ async fn test_url(config: TestConfig, count: usize, parallelism: usize) -> TestR
     }
     let _ = stdout.queue(cursor::MoveUp(1));
     let _ = stdout.queue(terminal::Clear(terminal::ClearType::FromCursorDown));
-    drop(stdout);
 
     TestResult::new(results, config.name, start.elapsed())
 }
@@ -140,16 +135,22 @@ async fn make_req(
     url: Url,
     check_for: Option<Vec<String>>,
     collect: Option<Vec<String>>,
+    latency_header: Option<String>,
 ) -> ResponseInfo {
     let start = Instant::now();
     match get(url).await {
         Ok(r) => {
             let time = start.elapsed();
             let collected: HashMap<String, String> = collect
-                .unwrap_or(Vec::new())
+                .unwrap_or_default()
                 .iter()
                 .map(|v| (v.to_owned(), get_header(&r, v)))
                 .collect();
+            let server_latency = latency_header.map(|v| {
+                let latency = get_header(&r, &v);
+                let latency = latency.parse::<u64>().unwrap_or_default();
+                Duration::from_millis(latency)
+            });
 
             match check_for {
                 Some(items) => match r.text().await {
@@ -158,10 +159,11 @@ async fn make_req(
                         let unmatched: Vec<_> =
                             items.into_iter().filter(|v| !j.contains(v)).collect();
                         match unmatched.len() {
-                            0 => ResponseInfo::success(time, collected),
+                            0 => ResponseInfo::success(time, server_latency, collected),
                             _ => ResponseInfo::error(
                                 time,
                                 format!("Missing values {unmatched:?}"),
+                                server_latency,
                                 Some(collected),
                             ),
                         }
@@ -169,19 +171,20 @@ async fn make_req(
                     _ => ResponseInfo::error(
                         time,
                         "text content unavailable from response".into(),
-                        None,
+                        server_latency,
+                        Some(collected),
                     ),
                 },
-                None => ResponseInfo::success(time, collected),
+                None => ResponseInfo::success(time, server_latency, collected),
             }
         }
-        Err(e) => ResponseInfo::error(start.elapsed(), e.to_string(), None),
+        Err(e) => ResponseInfo::error(start.elapsed(), e.to_string(), None, None),
     }
 }
 
 fn get_header(res: &Response, key: &str) -> String {
     res.headers()
         .get(key)
-        .and_then(|h| Some(h.to_str().unwrap_or("").to_owned()))
-        .unwrap_or("".to_owned())
+        .map(|h| h.to_str().unwrap_or("").to_owned())
+        .unwrap_or_default()
 }

@@ -34,6 +34,23 @@ fn main() -> Result<()> {
             &failures_title,
             &options.output_dir,
         );
+
+        let one_s_title = format!("{} Server Latency", result.name);
+        let _ = plot(
+            result.responses.iter().filter_map(|r| r.server_latency),
+            &one_s_title,
+            &options.output_dir,
+        );
+
+        let req_l_title = format!("{} Request Latency", result.name);
+        let _ = plot(
+            result
+                .responses
+                .iter()
+                .filter_map(|r| r.server_latency.map(|latency| r.time - latency)),
+            &req_l_title,
+            &options.output_dir,
+        );
     }
 
     Ok(())
@@ -57,10 +74,11 @@ fn plot(data: impl Iterator<Item = Duration>, name: &str, out_dir: &str) -> Resu
         .iter()
         .map(|v| (*v.value as u32))
         .max()
-        .ok_or(anyhow::anyhow!("no max??"))?;
+        .ok_or_else(|| anyhow::anyhow!("no max??"))?;
 
-    let std_dev = std_deviation(&data_ms).ok_or(anyhow::anyhow!("unable to calculate std_dev"))?;
-    let avg = mean(&data_ms).ok_or(anyhow::anyhow!("unable to calculate avg"))?;
+    let std_dev =
+        std_deviation(&data_ms).ok_or_else(|| anyhow::anyhow!("unable to calculate std_dev"))?;
+    let avg = mean(&data_ms).ok_or_else(|| anyhow::anyhow!("unable to calculate avg"))?;
 
     use plotters::prelude::*;
 
@@ -83,12 +101,11 @@ fn plot(data: impl Iterator<Item = Duration>, name: &str, out_dir: &str) -> Resu
     ctx.configure_mesh().draw()?;
 
     ctx.draw_series(
-        Histogram::vertical(&ctx)
-            .margin(10)
-            .data(histogram.iter().filter_map(|v| match v.bin.start() {
-                Some(bin) => Some((bin, (*v.value) as u32)),
-                _ => None,
-            })),
+        Histogram::vertical(&ctx).margin(10).data(
+            histogram
+                .iter()
+                .filter_map(|v| v.bin.start().map(|bin| (bin, (*v.value) as u32))),
+        ),
     )?;
 
     Ok(())
