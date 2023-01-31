@@ -21,14 +21,14 @@ fn main() -> Result<()> {
     let options = Options::parse();
 
     for result in TestResult::load_data(&options.data_dir)? {
-        let title = format!("{} Successes", result.name);
+        let title = format!("{} Successes Total Latency", result.name);
         let _ = plot(
             result.success_responses().map(|res| res.time),
             &title,
             &options.output_dir,
         );
 
-        let failures_title = format!("{} Failures", result.name);
+        let failures_title = format!("{} Failures Total Latency", result.name);
         let _ = plot(
             result.failure_responses().map(|res| res.time),
             &failures_title,
@@ -42,7 +42,7 @@ fn main() -> Result<()> {
             &options.output_dir,
         );
 
-        let req_l_title = format!("{} Request Latency", result.name);
+        let req_l_title = format!("{} Infrastructure Latency", result.name);
         let _ = plot(
             result
                 .responses

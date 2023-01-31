@@ -67,7 +67,8 @@ impl TestResult {
         ",
             self.name,
             self.total_time,
-            (self.success_count + self.failure_count) / self.total_time.as_secs() as usize,
+            ((self.success_count + self.failure_count) as f64 / self.total_time.as_secs_f64())
+                as u64,
             self.success_count,
             self.avg_success().unwrap_or(Duration::from_secs(0)),
             self.failure_count,

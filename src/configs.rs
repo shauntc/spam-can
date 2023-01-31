@@ -1,9 +1,18 @@
-use std::fmt;
-
 use reqwest::Url;
 use serde::{de, Deserialize, Deserializer};
+use std::collections::HashMap;
+
+mod defaults {
+    pub fn count() -> usize {
+        10
+    }
+    pub fn rotate_uuids() -> bool {
+        false
+    }
+}
 
 #[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct SpamConfig {
     /// values to check for in all responses
     pub check_for: Option<Vec<String>>,
@@ -23,15 +32,11 @@ pub struct SpamConfig {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct TestConfig {
     pub name: String,
-    #[serde(deserialize_with = "deserialize_url")]
+    #[serde(deserialize_with = "deserialize::url")]
     pub url: Url,
-    /// the query param name to add the flights to (default 'fdhead')
-    #[serde(default = "defaults::flights_param")]
-    pub flights_param: String,
-    /// flights to add to the url
-    pub flights: Option<String>,
     /// items to check for in the request text
     pub check_for: Option<Vec<String>>,
     /// override for the number of requests to this url
@@ -60,29 +65,29 @@ impl TestConfig {
     }
 }
 
-fn deserialize_url<'de, D: Deserializer<'de>>(d: D) -> Result<Url, D::Error> {
-    struct UrlVisitor;
-    impl<'de> de::Visitor<'de> for UrlVisitor {
-        type Value = Url;
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter.write_str("a valid url")
-        }
-        fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
-            Url::parse(v).map_err(E::custom)
-        }
+mod deserialize {
+    use super::*;
+
+    #[derive(Deserialize)]
+    struct UrlComponents {
+        base_url: String,
+        query: Option<HashMap<String, String>>,
     }
 
-    d.deserialize_any(UrlVisitor)
-}
-
-mod defaults {
-    pub fn count() -> usize {
-        10
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum UrlOrParts {
+        Url(Url),
+        Parts(UrlComponents),
     }
-    pub fn rotate_uuids() -> bool {
-        false
-    }
-    pub fn flights_param() -> String {
-        "fdhead".into()
+    pub fn url<'de, D: Deserializer<'de>>(d: D) -> Result<Url, D::Error> {
+        match UrlOrParts::deserialize(d)? {
+            UrlOrParts::Url(url) => Ok(url),
+            UrlOrParts::Parts(parts) => match parts.query {
+                Some(query) => Url::parse_with_params(&parts.base_url, query.iter()),
+                None => Url::parse(&parts.base_url),
+            }
+            .map_err(de::Error::custom),
+        }
     }
 }

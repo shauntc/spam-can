@@ -92,9 +92,7 @@ async fn test_url(config: TestConfig, count: usize, parallelism: usize) -> TestR
             let req_uuid = format!("m-{}", uuid::Uuid::new_v4().simple());
             replace_or_append_query_param(&mut url, "user", &req_uuid);
         }
-        if let Some(flights) = &config.flights {
-            replace_or_append_query_param(&mut url, "fdhead", flights)
-        }
+
         let check_for = config.check_for.clone();
         let collect = config.collect.clone();
         let latency_header = config.latency_header.clone();

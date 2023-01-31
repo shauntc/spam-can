@@ -1624,6 +1624,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "toml",
+ "url",
  "uuid",
 ]
 
@@ -1893,6 +1894,7 @@ dependencies = [
  "form_urlencoded",
  "idna",
  "percent-encoding",
+ "serde",
 ]
 
 [[package]]
