@@ -15,6 +15,7 @@ use tokio::time::Duration;
 pub struct TestResult {
     pub name: String,
     total_time: Duration,
+    request_time: Duration,
     pub responses: Vec<ResponseInfo>,
     success_count: usize,
     failure_count: usize,
@@ -24,12 +25,14 @@ impl TestResult {
     pub fn new(responses: Vec<ResponseInfo>, name: String, total_time: Duration) -> Self {
         let success_count = responses.iter().filter(|r| r.status.is_success()).count();
         let failure_count = responses.iter().filter(|r| !r.status.is_success()).count();
+        let request_time = responses.iter().map(|r| r.time).sum();
         Self {
             name,
             total_time,
             responses,
             success_count,
             failure_count,
+            request_time,
         }
     }
 
