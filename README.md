@@ -5,7 +5,9 @@ A toolbox for spamming requests at an api and analyzing the results. Includes 3 
 - `spam` - for collecting data which is then stored in [rkyv](https://github.com/rkyv/rkyv) files
   - `spam.toml` - config file listing the requests in [toml](https://toml.io/en/) (can also be a `.json` file),
 - `plot` - loads the data and creates histograms for it
-- `extract` - for finding requests in a certain time range
+- `extract` - for data analysis
+  - `percentiles` - show the p75/95/99, etc
+  - `range` - get a number of requests in a range
 
 ## Dependencies
 
