@@ -1,5 +1,4 @@
 count = 100
-rotate_uuids = false
 
 [[test_configs]]
 name = "ors-local-answers-single"
