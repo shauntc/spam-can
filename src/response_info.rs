@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 use bytecheck::CheckBytes;
 use rkyv::{Archive, Deserialize, Serialize};
@@ -54,5 +54,27 @@ impl ResponseInfo {
             server_latency,
             collected,
         }
+    }
+}
+
+impl Display for ResponseInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut s = f.debug_struct("Response");
+
+        if let Status::Failure { reason } = &self.status {
+            s.field("failure", reason);
+        }
+
+        match &self.server_latency {
+            Some(server_latency) => s.field(
+                "time",
+                &format!("{:?} (server: {:?})", self.time, server_latency),
+            ),
+            None => s.field("time", &self.time),
+        };
+
+        s.field("collected", &self.collected);
+
+        s.finish()
     }
 }

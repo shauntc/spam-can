@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
 use spam_can::{ResponseInfo, TestResult};
 
@@ -20,6 +20,11 @@ enum Command {
         count: u64,
     },
     Percentiles,
+    Failures {
+        /// number of requests to find
+        #[arg(long, short, default_value_t = 1)]
+        count: usize,
+    },
 }
 
 #[derive(Parser)]
@@ -49,6 +54,9 @@ fn main() -> Result<()> {
             max_ms,
             count,
         } => {
+            if count == 0 {
+                return Err(anyhow!("Count cannot be 0"));
+            }
             let min = Duration::from_millis(min_ms);
             let max = Duration::from_millis(max_ms);
 
@@ -62,7 +70,7 @@ fn main() -> Result<()> {
                 println!("{}: (found {}/{})", result.name, responses.len(), count);
                 if !responses.is_empty() {
                     for response in responses {
-                        println!("{response:#?}");
+                        println!("{response:#}");
                     }
                 } else {
                     println!("Unable to find request with that range")
@@ -79,6 +87,24 @@ fn main() -> Result<()> {
                 println!("  P99: {}", percentile_time(&result.responses, 0.99));
                 println!("  P99.5: {}", percentile_time(&result.responses, 0.995));
                 println!("  P99.9: {}", percentile_time(&result.responses, 0.999));
+            }
+        }
+        Command::Failures { count } => {
+            if count == 0 {
+                return Err(anyhow!("Count cannot be 0"));
+            }
+            for result in TestResult::load_filtered(&data_dir, names.as_deref())? {
+                let responses: Vec<_> = result.failure_responses().take(count).collect();
+
+                println!("{}: (found {}/{})", result.name, responses.len(), count);
+                if !responses.is_empty() {
+                    for response in responses {
+                        println!("{response:#}");
+                    }
+                } else {
+                    println!("No failed requests")
+                }
+                println!();
             }
         }
     }
