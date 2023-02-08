@@ -51,12 +51,14 @@ pub struct TestConfig {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(tag = "method", deny_unknown_fields)]
 pub enum RequestConfig {
+    #[serde(alias = "get", alias = "Get")]
     GET {
         #[serde(deserialize_with = "deserialize::url")]
         url: Url,
         #[serde(default)]
         headers: HashMap<String, String>,
     },
+    #[serde(alias = "post", alias = "Post")]
     POST {
         #[serde(deserialize_with = "deserialize::url")]
         url: Url,

@@ -98,7 +98,7 @@ name = "prong2-trending-xap-segments"
 check_for = ["TrendingModule"]
 collect = ["ddd-activityid", "ddd-debugid"]
 latency_header = "OneWebServiceLatency"
-request.method = "GET"
+request.method = "get"
 request.url.base_url = "https://api.msn.com/news/feed/pages/dashboard4?apikey=AEbyVYqTQAPvg4lWwMSFHaLkDzl3weRKKIDDInLQUj&market=en-us&ocid=winp2&timeOut=100000&user=m-18543CBC84E967AF12DD2CFE856766F3"
 request.url.query.fdhead = "prg-pr2-na4-tre,prg-pr2-cgtrend,prg-1sw-tslt"
 
@@ -106,5 +106,5 @@ request.url.query.fdhead = "prg-pr2-na4-tre,prg-pr2-cgtrend,prg-1sw-tslt"
 name = "prong2-no-flights"
 collect = ["ddd-activityid", "ddd-debugid"]
 latency_header = "OneWebServiceLatency"
-request.method = "GET"
+request.method = "Get"
 request.url = "https://api.msn.com/news/feed/pages/dashboard4?apikey=AEbyVYqTQAPvg4lWwMSFHaLkDzl3weRKKIDDInLQUj&market=en-us&ocid=winp2&timeOut=100000&user=m-18543CBC84E967AF12DD2CFE856766F3"
