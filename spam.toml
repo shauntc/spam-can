@@ -1,48 +1,110 @@
-count = 1000
+count = 100
 rotate_uuids = false
 
 [[test_configs]]
+name = "ors-local-answers-single"
+rotate_uuids = true
+check_for = ["n0", "content"]
+latency_header = "contel-latency-ms"
+request.url = "http://127.0.0.1:3000/answers?market=en-ca&user=m-1A981357C1DE668022ED0139C06A6704"
+request.method = "POST"
+request.headers."content-type" = "application/json"
+request.body = '''[
+    {
+        "id": "n0",
+        "type": "reco",
+        "source": "Sage",
+        "query": "trending now",
+        "channel": "",
+        "count": 20,
+        "offset": 0
+    }
+]'''
+
+[[test_configs]]
+name = "ors-local-answers-many"
+rotate_uuids = true
+check_for = ["n0", "content"]
+latency_header = "contel-latency-ms"
+request.url = "http://127.0.0.1:3000/answers?market=en-ca&user=m-1A981357C1DE668022ED0139C06A6704"
+request.method = "POST"
+request.headers."content-type" = "application/json"
+request.body = '''[
+    {
+        "id": "n0",
+        "type": "reco",
+        "source": "Sage",
+        "query": "trending now",
+        "channel": "",
+        "count": 1,
+        "offset": 0
+    },
+    {
+        "id": "n1",
+        "type": "reco",
+        "source": "Sage",
+        "query": "",
+        "channel": "",
+        "count": 3,
+        "offset": 0
+    },
+    {
+        "id": "n2",
+        "type": "reco",
+        "source": "Sage",
+        "query": "",
+        "channel": "",
+        "count": 10,
+        "offset": 0
+    },
+    {
+        "id": "n3",
+        "type": "reco",
+        "source": "Sage",
+        "query": "trending now",
+        "channel": "",
+        "count": 6,
+        "offset": 0
+    }
+]'''
+
+[[test_configs]]
 name = "ntp"
-url = "https://api.msn.com/news/feed/pages/ntp?User=m-1A981357C1DE668022ED0139C06A6704&activityId=2DEF63EE-DA54-477D-A5CB-55A117775578&apikey=0QfOX3Vn51YCzitbLaRkTTBadtWpgTN8NZLW0C1SEM&audienceMode=adult&cm=en-ca&contentType=article,video,slideshow,webcontent&duotone=true&infopaneCount=26&memory=8&new-user-fre=1&newsSkip=0&newsTop=48&ocid=anaheim-ntp-feeds&timeOut=1000"
 collect = ["ddd-activityid", "ddd-debugid"]
 latency_header = "OneWebServiceLatency"
+request.method = "GET"
+request.url = "https://api.msn.com/news/feed/pages/ntp?User=m-1A981357C1DE668022ED0139C06A6704&activityId=2DEF63EE-DA54-477D-A5CB-55A117775578&apikey=0QfOX3Vn51YCzitbLaRkTTBadtWpgTN8NZLW0C1SEM&audienceMode=adult&cm=en-ca&contentType=article,video,slideshow,webcontent&duotone=true&infopaneCount=26&memory=8&new-user-fre=1&newsSkip=0&newsTop=48&ocid=anaheim-ntp-feeds&timeOut=1000"
 
 [[test_configs]]
-name = "trending"
+name = "prong2-trending"
+check_for = ["TrendingModule"]
+collect = ["ddd-activityid", "ddd-debugid"]
+request.method = "GET"
+latency_header = "OneWebServiceLatency"
+request.url.base_url = "https://api.msn.com/news/feed/pages/dashboard4?apikey=AEbyVYqTQAPvg4lWwMSFHaLkDzl3weRKKIDDInLQUj&market=en-us&ocid=winp2&timeOut=100000&user=m-18543CBC84E967AF12DD2CFE856766F3"
+request.url.query.fdhead = "prg-pr2-na-tre,prg-pr2-cgtrend,prg-1sw-tslt"
+
+[[test_configs]]
+name = "prong2-trending-xap"
 check_for = ["TrendingModule"]
 collect = ["ddd-activityid", "ddd-debugid"]
 latency_header = "OneWebServiceLatency"
-url.base_url = "https://api.msn.com/news/feed/pages/dashboard4?apikey=AEbyVYqTQAPvg4lWwMSFHaLkDzl3weRKKIDDInLQUj&market=en-us&ocid=winp2&timeOut=100000&user=m-18543CBC84E967AF12DD2CFE856766F3"
-url.query.fdhead = "prg-pr2-na-tre,prg-pr2-cgtrend,prg-1sw-tslt"
+request.method = "GET"
+request.url.base_url = "https://api.msn.com/news/feed/pages/dashboard4?apikey=AEbyVYqTQAPvg4lWwMSFHaLkDzl3weRKKIDDInLQUj&market=en-us&ocid=winp2&timeOut=100000&user=m-18543CBC84E967AF12DD2CFE856766F3"
+request.url.query.fdhead = "prg-pr2-na2-tre,prg-pr2-cgtrend,prg-1sw-tslt"
 
 [[test_configs]]
-name = "trending xap"
+name = "prong2-trending-xap-segments"
 check_for = ["TrendingModule"]
 collect = ["ddd-activityid", "ddd-debugid"]
 latency_header = "OneWebServiceLatency"
-url.base_url = "https://api.msn.com/news/feed/pages/dashboard4?apikey=AEbyVYqTQAPvg4lWwMSFHaLkDzl3weRKKIDDInLQUj&market=en-us&ocid=winp2&timeOut=100000&user=m-18543CBC84E967AF12DD2CFE856766F3"
-url.query.fdhead = "prg-pr2-na2-tre,prg-pr2-cgtrend,prg-1sw-tslt"
+request.method = "GET"
+request.url.base_url = "https://api.msn.com/news/feed/pages/dashboard4?apikey=AEbyVYqTQAPvg4lWwMSFHaLkDzl3weRKKIDDInLQUj&market=en-us&ocid=winp2&timeOut=100000&user=m-18543CBC84E967AF12DD2CFE856766F3"
+request.url.query.fdhead = "prg-pr2-na4-tre,prg-pr2-cgtrend,prg-1sw-tslt"
 
 [[test_configs]]
-name = "trending xap segments"
-url.base_url = "https://api.msn.com/news/feed/pages/dashboard4?apikey=AEbyVYqTQAPvg4lWwMSFHaLkDzl3weRKKIDDInLQUj&market=en-us&ocid=winp2&timeOut=100000&user=m-18543CBC84E967AF12DD2CFE856766F3"
-url.query.fdhead = "prg-pr2-na4-tre,prg-pr2-cgtrend,prg-1sw-tslt"
-check_for = ["TrendingModule"]
+name = "prong2-no-flights"
 collect = ["ddd-activityid", "ddd-debugid"]
 latency_header = "OneWebServiceLatency"
-
-[[test_configs]]
-name = "no flights"
-url = "https://api.msn.com/news/feed/pages/dashboard4?apikey=AEbyVYqTQAPvg4lWwMSFHaLkDzl3weRKKIDDInLQUj&market=en-us&ocid=winp2&timeOut=100000&user=m-18543CBC84E967AF12DD2CFE856766F3"
-collect = ["ddd-activityid", "ddd-debugid"]
-latency_header = "OneWebServiceLatency"
-
-[[test_configs]]
-name = "ors-reco-azure-container"
-url = "https://contel-service.icydesert-5a186ef1.canadacentral.azurecontainerapps.io/reco?user=m-347E9F30BA2F60623D298DA4BB9A618B&market=en-ca&count=10"
-latency_header = "contel-latency-ms"
-
-[[test_configs]]
-name = "ors-reco-azure-webapp"
-url = "https://contel-app.azurewebsites.net//reco?user=m-347E9F30BA2F60623D298DA4BB9A618B&market=en-ca&count=10"
-latency_header = "contel-latency-ms"
+request.method = "GET"
+request.url = "https://api.msn.com/news/feed/pages/dashboard4?apikey=AEbyVYqTQAPvg4lWwMSFHaLkDzl3weRKKIDDInLQUj&market=en-us&ocid=winp2&timeOut=100000&user=m-18543CBC84E967AF12DD2CFE856766F3"

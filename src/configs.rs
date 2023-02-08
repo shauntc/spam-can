@@ -35,8 +35,7 @@ pub struct SpamConfig {
 #[serde(deny_unknown_fields)]
 pub struct TestConfig {
     pub name: String,
-    #[serde(deserialize_with = "deserialize::url")]
-    pub url: Url,
+    pub request: RequestConfig,
     /// items to check for in the request text
     pub check_for: Option<Vec<String>>,
     /// override for the number of requests to this url
@@ -47,6 +46,25 @@ pub struct TestConfig {
     pub collect: Option<Vec<String>>,
     /// the key of a header that contains how long the server used processing the request in ms
     pub latency_header: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(tag = "method", deny_unknown_fields)]
+pub enum RequestConfig {
+    GET {
+        #[serde(deserialize_with = "deserialize::url")]
+        url: Url,
+        #[serde(default)]
+        headers: HashMap<String, String>,
+    },
+    POST {
+        #[serde(deserialize_with = "deserialize::url")]
+        url: Url,
+        #[serde(default)]
+        headers: HashMap<String, String>,
+        #[serde(default)]
+        body: String,
+    },
 }
 
 impl TestConfig {

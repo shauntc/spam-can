@@ -1,5 +1,5 @@
 use std::ffi::OsStr;
-use std::io::Write;
+use std::io::{Stdout, Write};
 use std::ops::Div;
 use std::path::Path;
 use std::time::Duration;
@@ -9,7 +9,8 @@ use anyhow::Result;
 use clap::Parser;
 use crossterm::{cursor, terminal, QueueableCommand};
 use futures::StreamExt;
-use reqwest::{get, Response, Url};
+use reqwest::{Client, Response};
+use spam_can::build_request;
 use tokio::time::Instant;
 
 use spam_can::{
@@ -86,17 +87,10 @@ async fn main() -> Result<()> {
 async fn test_url(config: TestConfig, count: usize, parallelism: usize) -> TestResult {
     let start = Instant::now();
     let count = config.count.unwrap_or(count);
+    let client = reqwest::Client::new();
     let f = (0..count).map(|_| {
-        let mut url = config.url.clone();
-        if let Some(true) = config.rotate_uuids {
-            let req_uuid = format!("m-{}", uuid::Uuid::new_v4().simple());
-            replace_or_append_query_param(&mut url, "user", &req_uuid);
-        }
-
-        let check_for = config.check_for.clone();
-        let collect = config.collect.clone();
-        let latency_header = config.latency_header.clone();
-        tokio::spawn(make_req(url.clone(), check_for, collect, latency_header))
+        let config = config.clone();
+        make_req(client.clone(), config)
     });
 
     let mut buffered = tokio_stream::iter(f).buffer_unordered(parallelism);
@@ -105,40 +99,48 @@ async fn test_url(config: TestConfig, count: usize, parallelism: usize) -> TestR
     let mut stdout = std::io::stdout();
     let _ = writeln!(stdout, "[{}]", config.name);
     let mut complete = 0usize;
+    print_progress(&mut stdout, complete, count);
 
-    while let Some(value) = buffered.next().await {
+    while let Some(result) = buffered.next().await {
+        results.push(result);
+
         complete += 1;
-        static VISUAL: &str = "====================>...................";
-        let length = VISUAL.len();
-        let ratio = (complete as f64 / count as f64).clamp(0f64, 1f64);
-        let chunks = (length as f64 * ratio).floor().div(2f64) as usize;
-        let start = (length / 2) - chunks;
-        let end = length - chunks;
-        let _ = stdout.queue(cursor::Hide);
-        let _ = stdout.queue(cursor::SavePosition);
-        let _ = write!(stdout, "[{}] {complete:>8}/{count}", &VISUAL[start..end]);
-        match value {
-            Ok(result) => results.push(result),
-            Err(e) => {
-                let _ = write!(stdout, "Join Error: {e:?}");
-            }
-        }
-        let _ = stdout.queue(cursor::RestorePosition);
+        print_progress(&mut stdout, complete, count);
     }
     let _ = stdout.queue(cursor::MoveUp(1));
     let _ = stdout.queue(terminal::Clear(terminal::ClearType::FromCursorDown));
 
-    TestResult::new(results, config.name, start.elapsed())
+    TestResult::new(results, config.name.clone(), start.elapsed())
+}
+fn print_progress(stdout: &mut Stdout, complete: usize, count: usize) {
+    static VISUAL: &str = "====================>...................";
+    let length = VISUAL.len();
+    let ratio = (complete as f64 / count as f64).clamp(0f64, 1f64);
+    let chunks = (length as f64 * ratio).floor().div(2f64) as usize;
+    let start = (length / 2) - chunks;
+    let end = length - chunks;
+    let _ = stdout.queue(cursor::Hide);
+    let _ = stdout.queue(cursor::SavePosition);
+    let _ = write!(stdout, "[{}] {complete:>8}/{count}", &VISUAL[start..end]);
+    let _ = stdout.queue(cursor::RestorePosition);
+    let _ = stdout.flush();
 }
 
 async fn make_req(
-    url: Url,
-    check_for: Option<Vec<String>>,
-    collect: Option<Vec<String>>,
-    latency_header: Option<String>,
+    client: Client,
+    TestConfig {
+        request,
+        check_for,
+        rotate_uuids,
+        collect,
+        latency_header,
+        ..
+    }: TestConfig,
 ) -> ResponseInfo {
+    let request = build_request(client, request, rotate_uuids);
+
     let start = Instant::now();
-    match get(url).await {
+    match request.send().await {
         Ok(r) => {
             let time = start.elapsed();
             let collected: HashMap<String, String> = collect
@@ -187,16 +189,4 @@ fn get_header(res: &Response, key: &str) -> String {
         .get(key)
         .map(|h| h.to_str().unwrap_or("").to_owned())
         .unwrap_or_default()
-}
-
-fn replace_or_append_query_param(url: &mut Url, name: &str, value: &str) {
-    let mut query: Vec<_> = url
-        .query_pairs()
-        .filter(|(n, _)| n != name)
-        .map(|(name, value)| (name.into_owned(), value.into_owned()))
-        .collect();
-
-    query.push((name.to_owned(), value.to_owned()));
-
-    url.query_pairs_mut().clear().extend_pairs(&query);
 }
