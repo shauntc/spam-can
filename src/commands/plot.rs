@@ -1,63 +1,66 @@
-use std::{fs, ops::Div};
+use std::{
+    fs,
+    ops::Div,
+    path::{Path, PathBuf},
+};
 
+use crate::TestResult;
 use anyhow::Result;
 use clap::Parser;
 use ndhistogram::{axis::Uniform, ndhistogram, Histogram};
-use spam_can::TestResult;
 use tokio::time::Duration;
 
 #[derive(Parser, Debug)]
-struct Options {
-    /// directory containing the data produced by 'spam'
-    #[arg(short, long, default_value = "out/data")]
-    data_dir: String,
+pub(crate) struct Options {}
 
-    /// output directory
-    #[arg(short, long, default_value = "out/graphs")]
-    output_dir: String,
-}
-
-fn main() -> Result<()> {
-    let options = Options::parse();
-
-    for result in TestResult::load_data(&options.data_dir)? {
+pub(crate) fn plot(
+    _options: Options,
+    names: Option<Vec<String>>,
+    data_dir: PathBuf,
+    out_dir: PathBuf,
+) -> Result<()> {
+    for result in TestResult::load_filtered(data_dir, names)? {
         let title = format!("{} Successes Total Latency", result.name);
-        let _ = plot(
+        let _ = plot_histogram(
             result.success_responses().map(|res| res.time),
             &title,
-            &options.output_dir,
+            &out_dir,
         );
 
         let failures_title = format!("{} Failures Total Latency", result.name);
-        let _ = plot(
+        let _ = plot_histogram(
             result.failure_responses().map(|res| res.time),
             &failures_title,
-            &options.output_dir,
+            &out_dir,
         );
 
         let one_s_title = format!("{} Server Latency", result.name);
-        let _ = plot(
+        let _ = plot_histogram(
             result.responses.iter().filter_map(|r| r.server_latency),
             &one_s_title,
-            &options.output_dir,
+            &out_dir,
         );
 
         let req_l_title = format!("{} Infrastructure Latency", result.name);
-        let _ = plot(
+        let _ = plot_histogram(
             result
                 .responses
                 .iter()
                 .filter_map(|r| r.server_latency.map(|latency| r.time - latency)),
             &req_l_title,
-            &options.output_dir,
+            &out_dir,
         );
     }
 
     Ok(())
 }
 
-fn plot(data: impl Iterator<Item = Duration>, name: &str, out_dir: &str) -> Result<()> {
-    let file_path = format!("{out_dir}/{name}.png");
+fn plot_histogram<P: AsRef<Path>>(
+    data: impl Iterator<Item = Duration>,
+    name: &str,
+    out_dir: P,
+) -> Result<()> {
+    let file_path = out_dir.as_ref().join(format!("{name}.png"));
     let _ = fs::create_dir_all(out_dir);
 
     let buckets = 80usize;

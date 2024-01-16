@@ -1,71 +1,25 @@
 count = 100
+max_rps = 100
+timeout = 10000
 
 [[test_configs]]
-name = "ors-local-answers-single"
-rotate_uuids = true
-check_for = ["n0", "content"]
-latency_header = "contel-latency-ms"
-request.url = "http://127.0.0.1:3000/answers?market=en-ca&user=m-1A981357C1DE668022ED0139C06A6704"
+name = "reco"
+request.url = "http://recowestus.trafficmanager.net:82/getnewfeeds"
 request.method = "POST"
 request.headers."content-type" = "application/json"
-request.body = '''[
-    {
-        "id": "n0",
-        "type": "reco",
-        "source": "Sage",
-        "query": "trending now",
-        "channel": "",
-        "count": 20,
-        "offset": 0
-    }
-]'''
-
-[[test_configs]]
-name = "ors-local-answers-many"
-rotate_uuids = true
-check_for = ["n0", "content"]
-latency_header = "contel-latency-ms"
-request.url = "http://127.0.0.1:3000/answers?market=en-ca&user=m-1A981357C1DE668022ED0139C06A6704"
-request.method = "POST"
-request.headers."content-type" = "application/json"
-request.body = '''[
-    {
-        "id": "n0",
-        "type": "reco",
-        "source": "Sage",
-        "query": "trending now",
-        "channel": "",
-        "count": 1,
-        "offset": 0
-    },
-    {
-        "id": "n1",
-        "type": "reco",
-        "source": "Sage",
-        "query": "",
-        "channel": "",
-        "count": 3,
-        "offset": 0
-    },
-    {
-        "id": "n2",
-        "type": "reco",
-        "source": "Sage",
-        "query": "",
-        "channel": "",
-        "count": 10,
-        "offset": 0
-    },
-    {
-        "id": "n3",
-        "type": "reco",
-        "source": "Sage",
-        "query": "trending now",
-        "channel": "",
-        "count": 6,
-        "offset": 0
-    }
-]'''
+request.body = '''{
+    "TraceId": "7AA5403744C943A9B7BD6923E1E6F3A1", 
+    "ImpressionId": "76B850C7D6CC47E0A5556AFE146FB36F", 
+    "UserId": "DE77A56C25A24B568546CC44C5BFCDC2", 
+    "Anid": "AFD9F025B192431B852305FAE83DB55D", 
+    "UserLatitude": 47.6062, 
+    "UserLongitude": -122.3321, 
+    "Source": "Sage",
+    "Market": "en-us",
+    "Channel": "",
+    "Count": 20, 
+    "IsDebugQuery": false
+}'''
 
 [[test_configs]]
 name = "ntp"

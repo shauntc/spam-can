@@ -6,7 +6,7 @@ use std::{
     ffi::OsStr,
     fs::{self, DirEntry, File},
     io::{BufWriter, Write},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 use tokio::time::Duration;
 
@@ -79,31 +79,24 @@ impl TestResult {
         )
     }
 
-    fn file_path(&self, folder: &str) -> PathBuf {
-        let filename = format!("{}.rkyv", self.name);
-        PathBuf::from(folder).join(filename)
+    fn file_path<P: AsRef<Path>>(&self, folder: P) -> PathBuf {
+        folder.as_ref().join(format!("{}.rkyv", self.name))
     }
 
-    pub fn save(&self, folder: &str) -> Result<()> {
-        let file_path = self.file_path(folder);
-        let _ = fs::create_dir_all(folder);
+    pub fn save<P: AsRef<Path>>(&self, folder: P) -> Result<()> {
+        let file_path = self.file_path(&folder);
+        let _ = fs::create_dir_all(&folder);
         let mut writer = BufWriter::new(File::create(file_path)?);
         let bytes = to_bytes::<Self, 1024>(self)?;
         Ok(writer.write_all(&bytes)?)
     }
 
-    pub fn load_data(output_path: &str) -> Result<impl Iterator<Item = TestResult>> {
-        Ok(Self::rkyv_files(output_path)?
-            .map(Self::unarchive_file)
-            .filter_map(|res| res.ok()))
-    }
-
-    pub fn load_filtered(
-        output_path: &str,
-        names: Option<&[String]>,
+    pub fn load_filtered<P: AsRef<Path>>(
+        data_dir: P,
+        names: Option<Vec<String>>,
     ) -> Result<impl Iterator<Item = TestResult>> {
-        Ok(Self::rkyv_files(output_path)?
-            .filter(|file| match names {
+        Ok(Self::rkyv_files(data_dir)?
+            .filter(|file| match &names {
                 Some(names) => file
                     .path()
                     .file_stem()
@@ -118,7 +111,7 @@ impl TestResult {
             .filter_map(|res| res.ok()))
     }
 
-    fn rkyv_files(directory: &str) -> Result<impl Iterator<Item = DirEntry>> {
+    fn rkyv_files<P: AsRef<Path>>(directory: P) -> Result<impl Iterator<Item = DirEntry>> {
         Ok(fs::read_dir(directory)?
             .into_iter()
             .filter_map(|f| f.ok())

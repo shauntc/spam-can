@@ -9,7 +9,7 @@ edition = "2021"
 anyhow = "1.0.68"
 bytecheck = "0.6.9"
 clap = { version = "4.0.32", features = ["derive"] }
-crossterm = "0.25.0"
+crossterm = "0.26.1"
 futures = "0.3.25"
 ndhistogram = "0.8.0"
 plotters = "0.3.4"
@@ -19,6 +19,11 @@ serde = { version = "1.0.152", features = ["serde_derive"] }
 serde_json = "1.0.91"
 tokio = { version = "1.24.0", features = ["full"] }
 tokio-stream = "0.1.11"
-toml = "0.6.0"
+toml = "0.7.3"
+tower = { version = "0.4.13", features = ["full"] }
 url = { version = "2.3.1", features = ["serde"] }
 uuid = { version = "1.2.2", features = ["v4", "fast-rng", "macro-diagnostics"] }
+
+# required for compliance
+[target.'cfg(unix)'.dependencies]
+openssl = { version = "0.10.55", features = ["vendored"] }

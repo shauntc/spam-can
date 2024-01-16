@@ -1,11 +1,11 @@
-use std::time::Duration;
+use std::{path::PathBuf, time::Duration};
 
+use crate::{ResponseInfo, TestResult};
 use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
-use spam_can::{ResponseInfo, TestResult};
 
-#[derive(Subcommand)]
-enum Command {
+#[derive(Subcommand, Debug)]
+pub(crate) enum Command {
     Range {
         /// minimum request length to find in ms
         #[arg(long)]
@@ -27,27 +27,17 @@ enum Command {
     },
 }
 
-#[derive(Parser)]
-struct Options {
+#[derive(Parser, Debug)]
+pub(crate) struct Options {
     #[command(subcommand)]
     command: Command,
-
-    /// names of the data to extract from
-    #[arg(long, short, use_value_delimiter = true)]
-    names: Option<Vec<String>>,
-
-    /// directory containing the data produced by 'spam'
-    #[arg(short, long, default_value = "out/data")]
-    data_dir: String,
 }
 
-fn main() -> Result<()> {
-    let Options {
-        command,
-        names,
-        data_dir,
-    } = Options::parse();
-
+pub(crate) fn extract(
+    Options { command }: Options,
+    names: Option<Vec<String>>,
+    data_dir: PathBuf,
+) -> Result<()> {
     match command {
         Command::Range {
             min_ms,
@@ -60,7 +50,7 @@ fn main() -> Result<()> {
             let min = Duration::from_millis(min_ms);
             let max = Duration::from_millis(max_ms);
 
-            for result in TestResult::load_filtered(&data_dir, names.as_deref())? {
+            for result in TestResult::load_filtered(&data_dir, names)? {
                 let responses: Vec<_> = result
                     .success_responses()
                     .filter(|x| x.time < max && x.time > min)
@@ -79,7 +69,7 @@ fn main() -> Result<()> {
             }
         }
         Command::Percentiles => {
-            for mut result in TestResult::load_filtered(&data_dir, names.as_deref())? {
+            for mut result in TestResult::load_filtered(&data_dir, names)? {
                 result.responses.sort_unstable_by_key(|r| r.time);
                 println!("{}:", result.name);
                 println!("  P75: {}", percentile_time(&result.responses, 0.75));
@@ -93,7 +83,7 @@ fn main() -> Result<()> {
             if count == 0 {
                 return Err(anyhow!("Count cannot be 0"));
             }
-            for result in TestResult::load_filtered(&data_dir, names.as_deref())? {
+            for result in TestResult::load_filtered(&data_dir, names)? {
                 let responses: Vec<_> = result.failure_responses().take(count).collect();
 
                 println!("{}: (found {}/{})", result.name, responses.len(), count);

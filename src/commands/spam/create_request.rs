@@ -2,35 +2,34 @@ use std::{collections::HashMap, str::FromStr};
 
 use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue},
-    Client, RequestBuilder, Url,
+    Method, RequestBuilder, Url,
 };
 
 use crate::configs::RequestConfig;
 
-pub fn build_request(
-    client: Client,
+pub(super) fn build_reqwest(
+    reqwest_client: &reqwest::Client,
     config: RequestConfig,
-    rotate_uuids: Option<bool>,
+    rotate_uuids: bool,
 ) -> RequestBuilder {
     match config {
-        RequestConfig::GET { url, headers } => client
-            .get(configure_url(rotate_uuids, url))
+        RequestConfig::Get { url, headers } => reqwest_client
+            .request(Method::GET, configure_url(rotate_uuids, url))
             .headers(to_header_map(headers)),
-        RequestConfig::POST { url, headers, body } => client
-            .post(configure_url(rotate_uuids, url))
+        RequestConfig::Post { url, headers, body } => reqwest_client
+            .request(Method::POST, configure_url(rotate_uuids, url))
             .headers(to_header_map(headers))
             .body(body),
     }
 }
 
-fn configure_url(rotate_uuids: Option<bool>, mut url: Url) -> Url {
-    match rotate_uuids {
-        Some(true) => {
-            let req_uuid = format!("m-{}", uuid::Uuid::new_v4().simple());
-            replace_or_append_query_param(&mut url, "user", &req_uuid);
-            url
-        }
-        _ => url,
+fn configure_url(rotate_uuids: bool, mut url: Url) -> Url {
+    if rotate_uuids {
+        let req_uuid = format!("m-{}", uuid::Uuid::new_v4().simple());
+        replace_or_append_query_param(&mut url, "user", &req_uuid);
+        url
+    } else {
+        url
     }
 }
 
