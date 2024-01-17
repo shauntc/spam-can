@@ -1,6 +1,5 @@
 use crate::ResponseInfo;
 use anyhow::Result;
-use bytecheck::CheckBytes;
 use rkyv::{check_archived_root, to_bytes, Archive, Deserialize, Serialize};
 use std::{
     ffi::OsStr,
@@ -11,7 +10,7 @@ use std::{
 use tokio::time::Duration;
 
 #[derive(Debug, Serialize, Deserialize, Archive)]
-#[archive_attr(derive(CheckBytes, Debug))]
+#[archive(check_bytes)]
 pub struct TestResult {
     pub name: String,
     total_time: Duration,
@@ -113,7 +112,6 @@ impl TestResult {
 
     fn rkyv_files<P: AsRef<Path>>(directory: P) -> Result<impl Iterator<Item = DirEntry>> {
         Ok(fs::read_dir(directory)?
-            .into_iter()
             .filter_map(|f| f.ok())
             .filter(|file| file.path().extension().and_then(OsStr::to_str) == Some("rkyv")))
     }

@@ -1,11 +1,10 @@
 use std::{collections::HashMap, fmt::Display};
 
-use bytecheck::CheckBytes;
 use rkyv::{Archive, Deserialize, Serialize};
 use tokio::time::Duration;
 
 #[derive(Debug, Serialize, Deserialize, Archive)]
-#[archive_attr(derive(CheckBytes, Debug))]
+#[archive(check_bytes)]
 pub enum Status {
     Success,
     Failure { reason: String },
@@ -21,7 +20,7 @@ impl Status {
 }
 
 #[derive(Debug, Serialize, Deserialize, Archive)]
-#[archive_attr(derive(CheckBytes, Debug))]
+#[archive(check_bytes)]
 pub struct ResponseInfo {
     pub time: Duration,
     pub status: Status,

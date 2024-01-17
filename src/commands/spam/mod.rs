@@ -4,7 +4,7 @@ mod test;
 mod test_client;
 
 pub(crate) use cancellation::*;
-pub(self) use test_client::SpamService;
+use test_client::SpamService;
 
 use std::ffi::OsStr;
 use std::fs;
